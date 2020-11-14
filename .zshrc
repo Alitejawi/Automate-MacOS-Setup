@@ -1,23 +1,15 @@
-ZSH_DISABLE_COMPFIX=true
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
+export PYTHONPATH=${PYTHONPATH}:/Users/aalitejawi/Documents/Work/python_modules
 
 # Path to your oh-my-zsh installation.
-export ZSH="/Users/dan/.oh-my-zsh"
-
-# If you come from bash you might have to change your $PATH.
-# export PATH=$HOME/bin:/usr/local/bin:$PATH
-
-# Path to your oh-my-zsh installation.
-
-## RENAME PATH FOR YOURSELF!
-export ZSH="/Users/Dan/.oh-my-zsh"
+export ZSH="/Users/aalitejawi/.oh-my-zsh"
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/robbyrussell/oh-my-zsh/wiki/Themes
-ZSH_THEME="agnoster"
+ZSH_THEME="dracula-pro"
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -54,7 +46,7 @@ ZSH_THEME="agnoster"
 # ENABLE_CORRECTION="true"
 
 # Uncomment the following line to display red dots whilst waiting for completion.
-#  COMPLETION_WAITING_DOTS="true"
+COMPLETION_WAITING_DOTS="true"
 
 # Uncomment the following line if you want to disable marking untracked files
 # under VCS as dirty. This makes repository status check for large repositories
@@ -77,19 +69,17 @@ ZSH_THEME="agnoster"
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(docker git git-extras npm)
+plugins=(git)
+ZSH_DISABLE_COMPFIX=true
 
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
-export ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern cursor line)
-# source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-# source /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
- export LANG=en_US.UTF-8
+# export LANG=en_US.UTF-8
 
 # Preferred editor for local and remote sessions
 # if [[ -n $SSH_CONNECTION ]]; then
@@ -109,50 +99,216 @@ export ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern cursor line)
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-#PowerShell
-alias powershell="/usr/local/microsoft/powershell/6/pwsh ; exit;"
+alias dep_search="/Users/aalitejawi/Documents/Work/jamf_find_dep_computer/jamf_find_dep_computer_final.py"
 
-#Chrome for headless chrome
-alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome"
-# Ex: chrome --headless --disable-gpu --screenshot https://www.chromestatus.com/
-# Ex: chrome --headless --disable-gpu --dump-dom https://www.chromestatus.com/
+###################
+# JSS (SELECTED NODES) Centos 7+
+#####
 
-alias screenshot="chrome --headless --disable-gpu --screenshot"
-alias html="chrome --headless --disable-gpu --dump-dom"
-alias md="mdv"
+SERVERS=( )
+export SERVERS
 
-# Folder for all repos
-alias repo="cd ~/_Repos"
-alias scratch="cd ~/_Repos/_scratchpad"
-alias scratchpad="cd ~/_Repos/_scratchpad"
+batch() {
+    
+    # Verbs
+    case $1 in
+        ( cmd )
+            # Run a command on the servers
+            for SERVER in ${SERVERS[@]}; do
+                if host $SERVER &>/dev/null; then
+                    printf "\n${KGRN}$SERVER: ${KNRM}\n"
+                    ssh $USER@$SERVER "${@:2}"
+                    hr
+                fi
+            done
+            return
+            ;;
+        ( get )
+            # Get files and directories from the servers
+            DOWNFOLDER="/Users/aalitejawi/Downloads/$(date +"%Y.%m.%d-%H.%M.%S")"
+            mkdir $DOWNFOLDER
 
-# Source - https://medium.com/@tzhenghao/a-guide-to-building-a-great-bashrc-23c52e466b1c
-alias ..='cd ..'
-alias ...='cd ..; cd ..'
-alias ....='cd ..; cd ..; cd ..'
+            for SERVER in ${SERVERS[@]}; do
+                if host $SERVER &>/dev/null; then
+                    printf "\n${KRED}$SERVER: ${KNRM}\n"
+                    mkdir "$DOWNFOLDER/$SERVER"
+                    for FILE in ${@:2}; do
+                        /usr/bin/scp -r "$SERVER:$FILE" "$DOWNFOLDER/$SERVER"
+                    done
+                    hr
+                fi
+            done
+            return
+            ;;
+        ( send )
+            # Send files and directories to the servers /tmp directory
+            for SERVER in ${SERVERS[@]}; do
+                if host $SERVER &>/dev/null; then
+                    printf "\n${KYEL}$SERVER: ${KNRM}\n"
+                    for FILE in ${@:2}; do
+                        /usr/bin/scp -r "$FILE" "$SERVER:/tmp"
+                    done
+                    hr
+                fi
+            done
+            return
+            ;;
+        ( addservers | addserver )
+            # Add specific servers
+            for SERVER in ${@:2}; do
+                printf "Addding $SERVER ... "
+                if [[ ! " ${SERVERS[@]} " =~ " $SERVER " ]]; then
+                    SERVERS+=( $SERVER )
+                    printf "${KGRN}Added${KNRM}\n"
+                else
+                    printf "${KRED}Already exists${KNRM}\n"
+                fi
+            done
+            ;;
+        ( removeservers | removeserver )
+            # Remove specific servers
+            for SERVER in ${@:2}; do
+                printf "Removing $SERVER ... "
+                if [[ " ${SERVERS[@]} " =~ " $SERVER " ]]; then
+                    SERVERS=( "${SERVERS[@]/$SERVER}" )
+                    printf "${KGRN}Removed${KNRM}\n"
+                else
+                    printf "${KRED}Nothing to remove${KNRM}\n"
+                fi
+            done
+            ;;
+        ( clearservers )
+            # Clear all servers from the list
+            SERVERS=( )
+            printf "${KGRN}Removed all servers\n"
+            printf "${KNRM}"
+            ;;
+        ( setservers )
+            SERVERS=( ${@:2} )
+            printf "${KGRN}Servers set to: ${KNRM}\n"
+            ;;
+        ( customset )
+            case $2 in
+                ( ams )
+                SERVERS=( )
+                for SERVER in ams4-jss{dmz,cor,api}-0{3..4}.corpad.adbkng.com; do
+                    if host $SERVER &>/dev/null; then
+                        SERVERS+=( $SERVER )  
+                    fi
+                done
+                ;;
+                ( lhr )
+                SERVERS=( )
+                for SERVER in lhr4-jss{dmz,cor,api}-0{3..4}.corpad.adbkng.com; do
+                    if host $SERVER &>/dev/null; then
+                        SERVERS+=( $SERVER )  
+                    fi
+                done
+                ;;
+            esac
+            ;;
+        ( defaults | default | init | reset )
+            # Reset to a default
+            SERVERS=( )
+            [ ${#@} -lt 2 ] && printf "${KGRN}Servers reset to: \n"
+            for SERVER in {ams,lhr}4-jss{dmz,cor,api}-0{3..4}.corpad.adbkng.com; do
+                if host $SERVER &>/dev/null; then
+                    SERVERS+=( $SERVER )  
+                fi
+            done
+            printf "${KNRM}"
+            [ ${#@} -ge 2 ] && return
+            ;;
+        ( * )
+            # Handle list and print and anything else really
+            printf "${KGRN}Current set:\n${KNRM}"
+            ;;
+    esac
+    
+    printf "%s\n" ${SERVERS[@]}
+}
 
-# Enable aliases to be sudo’ed
-alias sudo='sudo '
+_batch () {
+    local state
+    #_arguments '1: :(cmd get send addservers removeservers clearservers setservers customset defaults reset list print )' '2: :->option'
+    _arguments '1: :->verb' '2: :->option'
 
-# Disk
-alias ll="ls -al"
-alias ls="ls  -a"
-alias df="df -h"
 
-# Networking
-alias localip="ipconfig getifaddr en0"
+    case $state in
+        ( verb )
+            _describe 'command' "( \
+            'cmd:Run a command on the batch of servers' \
+            'get:Get files and directories from the batch of servers' \
+            'send:Send files and directories to the /tmp on the batch of servers' \
+            'addservers:Add (a) server(s) to the batch of servers' \
+            'removeservers:Remove (a) server(s) to from batch of servers' \
+            'clearservers:Clear all servers to from batch of servers' \
+            'setservers:Set (a) server(s) to be batch of servers' \
+            'customset:Set the servers to a custom batch' \
+            'defaults:Set the servers to a default batch' \
+            'list:List the batch of servers' \
+            )"
+            ;;
+        ( option )
+            if [ "$words[2]" = "customset" ]; then
+                _describe 'command' "( \
+                'ams:Custom set ams servers' \
+                'lhr:Custom set lhr servers' \    
+                )"
+            fi
+            ;;
+    esac
 
-# Lock the screen (when going AFK)
-alias afk="/System/Library/CoreServices/Menu\ Extras/User.menu/Contents/Resources/CGSession -suspend"
 
-# git aliases
-alias gdf="git diff"
-alias gap="git add -p"
-alias ga="git add ."
-alias gc="git commit -m"
-alias gs="git status"
-alias gco="git checkout"
-alias gul="git pull"
-alias gush="git push"
-alias gbra="git branch"
-alias glog="git log --pretty=format:'%h - %an: %s' --graph" # print out log with hash, author name, status, and include graph info
+}
+compdef _batch batch
+
+batch init 0
+
+hr() {
+    printf "%$(tput cols)s\n" | tr " " "="
+}
+
+function apropos() {
+    local SEARCH="${1:-.}"
+    local SECTIONS="${2:-124678}"
+
+    # Turn off line wrapping:
+    printf '\033[?7l'
+    /usr/bin/man -k $SEARCH 2> /dev/null | grep -E "\([${SECTIONS}]\)" | grep -v builtin
+    # Turn on  line wrapping:
+    printf '\033[?7h'
+}
+
+###################
+# SSH
+#####
+
+# Before running ssh:
+#    1. Check that ssh key is present and retrieve
+#    2. ssh
+ssh () {
+    if ( ping -c 1 -q ssh.booking.com &>/dev/null ); then
+        if [ "$(ssh-add -L)" = "The agent has no identities." ]; then
+            echo "Temporary key is: Expired.  Renewing..."
+            /usr/bin/ssh ssh.booking.com
+        fi
+    fi
+    
+    if [ ! -z "$1" ]; then
+        /usr/bin/ssh ${@}
+    else
+        echo "Logged in"
+    fi
+}
+: <<'BLOCK'
+###################
+
+source ~/.oh-my-zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source ~/powerlevel10k/powerlevel10k.zsh-theme
+source ~/powerlevel10k/powerlevel10k.zsh-theme
+
+
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
